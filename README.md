@@ -6,19 +6,19 @@
 
 **From a 6-row scoreboard to an LLM that learns to use tools, in 4 small notebooks you can run for free.**
 
-[![CI](https://github.com/HamedKhosravi99/TrainYourAgent/actions/workflows/ci.yml/badge.svg)](https://github.com/HamedKhosravi99/TrainYourAgent/actions/workflows/ci.yml)
+[![CI](https://github.com/HamedKhosravi99/Train-Your-RL-Agent/actions/workflows/ci.yml/badge.svg)](https://github.com/HamedKhosravi99/Train-Your-RL-Agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![PyTorch](https://img.shields.io/badge/PyTorch-only-ee4c2c)
-[![Open Chapter 1 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/TrainYourAgent/blob/main/notebooks/01_q_learning_tool_agent.ipynb)
+[![Open Chapter 1 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/Train-Your-RL-Agent/blob/main/notebooks/01_q_learning_tool_agent.ipynb)
 
-<img src="assets/ladder.png" alt="The four chapters: Q-learning, REINFORCE, GRPO, LLM agent" width="100%">
+<img src="assets/ladder.png" alt="The learning path: Q-learning, REINFORCE, GRPO, then an LLM agent, with before and after accuracy for each" width="100%">
 
 </div>
 
 Reinforcement learning with checkable rewards is how reasoning models like DeepSeek-R1 were trained. **Agentic RL** takes the same recipe further: the model learns to **use tools, plan over several steps, and act on what the tools return**, as in Search-R1 and ReTool. But most code that does this lives inside huge frameworks, and most tutorials assume you already know RL.
 
-**TrainYourAgent starts from zero.** Each chapter adds **one big idea** on top of the last, keeps every line of code visible, and runs on a laptop CPU or a free Colab GPU. By the end, you'll have trained a real LLM to plan *look up a price → calculate → answer* with **GRPO you wrote yourself**.
+**Train Your RL Agent starts from zero.** Each chapter adds **one big idea** on top of the last, keeps every line of code visible, and runs on a laptop CPU or a free Colab GPU. By the end, you'll have trained a real LLM to plan *look up a price → calculate → answer* with **GRPO you wrote yourself**.
 
 <div align="center">
 
@@ -63,10 +63,10 @@ Look up → plan the arithmetic → answer.<br>It learned this from a 0/1 reward
 
 | # | Chapter | The one big idea | You'll see | Runs on | Open |
 |:-:|:--|:--|:--|:--|:-:|
-| 1 | **Q-learning tool agent** | Learn a *score* for each action from rewards; plan two steps ahead | A tiny agent learns *right tool → Finish*: **20% → 100%** on unseen tasks | CPU · ~1 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/TrainYourAgent/blob/main/notebooks/01_q_learning_tool_agent.ipynb) |
-| 2 | **Policy gradients (REINFORCE)** | Learn *probabilities* directly, the way LLMs work: `loss = -(advantage * log_prob)` | Probabilities sharpen from 25% to ~100%; why a **baseline** matters (71% vs 98% in our tests) | CPU · ~1 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/TrainYourAgent/blob/main/notebooks/02_policy_gradient_reinforce.ipynb) |
-| 3 | **GRPO from scratch** | Compare a **group** of attempts, **clip** updates, add a **KL leash**; the agent now *reads* the question | **18% → 98%** on unseen phrasings, plus experiments on every GRPO knob | CPU · ~2 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/TrainYourAgent/blob/main/notebooks/03_grpo_from_scratch.ipynb) |
-| 4 | **Agentic RL for a real LLM** | Multi-turn **tool calls** inside rollouts, a **loss mask** for tool output, **LoRA** from scratch | Qwen2.5-0.5B learns lookup + calculator: **16% → 100%** on held-out questions | free T4 GPU · ~20 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/TrainYourAgent/blob/main/notebooks/04_llm_tool_use_grpo.ipynb) |
+| 1 | **Q-learning tool agent** | Learn a *score* for each action from rewards; plan two steps ahead | A tiny agent learns *right tool → Finish*: **20% → 100%** on unseen tasks | CPU · ~1 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/Train-Your-RL-Agent/blob/main/notebooks/01_q_learning_tool_agent.ipynb) |
+| 2 | **Policy gradients (REINFORCE)** | Learn *probabilities* directly, the way LLMs work: `loss = -(advantage * log_prob)` | Probabilities sharpen from 25% to ~100%; why a **baseline** matters (71% vs 98% in our tests) | CPU · ~1 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/Train-Your-RL-Agent/blob/main/notebooks/02_policy_gradient_reinforce.ipynb) |
+| 3 | **GRPO from scratch** | Compare a **group** of attempts, **clip** updates, add a **KL leash**; the agent now *reads* the question | **18% → 98%** on unseen phrasings, plus experiments on every GRPO knob | CPU · ~2 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/Train-Your-RL-Agent/blob/main/notebooks/03_grpo_from_scratch.ipynb) |
+| 4 | **Agentic RL for a real LLM** | Multi-turn **tool calls** inside rollouts, a **loss mask** for tool output, **LoRA** from scratch | Qwen2.5-0.5B learns lookup + calculator: **16% → 100%** on held-out questions | free T4 GPU · ~20 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/Train-Your-RL-Agent/blob/main/notebooks/04_llm_tool_use_grpo.ipynb) |
 
 **Who is this for?** Students, engineers and researchers who've heard "GRPO", "agentic RL" or "RL for LLMs" and want to really understand it. You need basic Python. No RL background is assumed, and chapters 1–3 don't even need a GPU.
 
@@ -79,8 +79,8 @@ Look up → plan the arithmetic → answer.<br>It learned this from a 0/1 reward
 **Option B: on your machine.**
 
 ```bash
-git clone https://github.com/HamedKhosravi99/TrainYourAgent.git
-cd TrainYourAgent
+git clone https://github.com/HamedKhosravi99/Train-Your-RL-Agent.git
+cd Train-Your-RL-Agent
 pip install -r requirements.txt
 jupyter notebook notebooks/
 ```
@@ -117,6 +117,8 @@ advantage = total_reward - baseline
 loss = -(advantage * log_probs.sum())    # better-than-usual episodes become more likely
 loss.backward(); optimizer.step()
 ```
+
+<img src="assets/reinforce.png" alt="REINFORCE flowchart: play an episode, compare its reward with the baseline, raise or lower the probability of its choices" width="100%">
 
 An experiment shows why the **baseline** matters. Give every episode +3 "free points", and without a baseline the agent reinforces its mistakes too (71% vs 98% after 300 rounds, averaged over 20 seeds).
 
@@ -196,7 +198,7 @@ In run A the agent settled into a *lookup → lookup → calculator* ritual on n
 ## 📁 Repository layout
 
 ```
-TrainYourAgent/
+Train-Your-RL-Agent/
 ├── notebooks/
 │   ├── 01_q_learning_tool_agent.ipynb      # CPU · scoreboard agent
 │   ├── 02_policy_gradient_reinforce.ipynb  # CPU · policy gradients + baselines
@@ -206,7 +208,7 @@ TrainYourAgent/
 │   └── train_tool_agent.py                 # Chapter 4 as one self-contained script
 ├── tests/
 │   └── test_tool_agent.py                  # tools, reward, masking, GRPO loss, LoRA
-├── assets/                                 # diagrams used in the notebooks and README
+├── assets/                                 # diagrams (regenerate with assets/src/diagrams.py)
 └── requirements.txt
 ```
 
@@ -264,10 +266,10 @@ If this helped your course, blog post or research, a citation or a ⭐ helps oth
 
 ```bibtex
 @misc{trainyouragent2026,
-  title  = {TrainYourAgent: Agentic Reinforcement Learning from Scratch, for Beginners},
+  title  = {Train Your RL Agent: Agentic Reinforcement Learning from Scratch, for Beginners},
   author = {Khosravi, Hamed},
   year   = {2026},
-  url    = {https://github.com/HamedKhosravi99/TrainYourAgent}
+  url    = {https://github.com/HamedKhosravi99/Train-Your-RL-Agent}
 }
 ```
 
