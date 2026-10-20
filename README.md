@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🧠 TrainYourAgent
+# 🧠 Train Your RL Agent
 
 ### Agentic Reinforcement Learning from scratch, for beginners
 
