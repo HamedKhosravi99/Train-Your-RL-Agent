@@ -12,7 +12,7 @@
 ![PyTorch](https://img.shields.io/badge/PyTorch-only-ee4c2c)
 [![Open Chapter 1 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/Train-Your-RL-Agent/blob/main/notebooks/01_q_learning_tool_agent.ipynb)
 
-<img src="assets/ladder.png" alt="The learning path: Q-learning, REINFORCE, GRPO, then an LLM agent, with before and after accuracy for each" width="100%">
+<img src="assets/ladder.svg" alt="Learning path with four stages: Q-learning, learn from rewards; REINFORCE, learn which actions are more likely to work; GRPO, compare several attempts; Agentic RL, train a real LLM to use tools" width="100%">
 
 </div>
 
@@ -95,68 +95,85 @@ python scripts/train_tool_agent.py --steps 3 --eval-size 8 --questions-per-step 
 
 ---
 
-## 🔍 What's inside each chapter
+## 🔍 How it works, one picture at a time
+
+### Reinforcement learning in ten seconds
+
+<img src="assets/rl_loop.svg" alt="Reinforcement learning loop: the agent takes an action (use the calculator), the environment sends feedback (56 is correct, reward +1), the agent learns what worked and tries again" width="100%">
 
 ### Chapter 1 · Q-learning: a scoreboard that learns
 
-An assistant has four buttons (**Calculator**, **Dictionary**, **Reply**, **Finish**) and must learn *which tool to use* and *when to stop*. It keeps a **Q-table** with a score for every (situation, button) pair and improves it with the classic update:
+> *The agent updates its score for an action using what happened now and what might happen next.*
+
+An assistant has four buttons (**Calculator**, **Dictionary**, **Reply**, **Finish**). It must learn *which tool to use* and *when to stop*:
+
+<img src="assets/two_states.svg" alt="Q-learning success path: needs information, uses the right tool, has the information, presses Finish, success; mistakes such as the wrong tool or finishing too early cost points" width="100%">
+
+The whole learning rule is two lines of Python:
 
 ```python
-better_guess = points + 0.9 * max(Q[next_state].values())   # reward now + best future
+better_guess = points + 0.9 * max(Q[next_state].values())   # reward now + best future score
 Q[state][button] += 0.25 * (better_guess - Q[state][button])
 ```
 
-<img src="assets/two_states.png" alt="The two situations of the toy agent" width="85%">
+### Chapter 2 · REINFORCE: learn from better-than-usual attempts
 
-### Chapter 2 · REINFORCE: from scores to probabilities
+> *Was this attempt better or worse than the agent usually does?*
 
-LLMs don't keep scores. They output **probabilities**. So we replace the table with a softmax **policy** and learn it with the line that sits at the heart of every RL-for-LLMs method:
+<img src="assets/reinforce.svg" alt="REINFORCE: try an episode, get a reward, compare it with the usual reward; better than usual makes those choices more likely, worse than usual makes them less likely" width="100%">
+
+LLMs choose words by **probability**, so this agent learns probabilities directly. One line of code does the work:
 
 ```python
-advantage = total_reward - baseline
-loss = -(advantage * log_probs.sum())    # better-than-usual episodes become more likely
-loss.backward(); optimizer.step()
+advantage = total_reward - baseline     # better (+) or worse (−) than usual?
+loss = -(advantage * log_probs.sum())   # raise or lower the probability of every choice it made
 ```
 
-<img src="assets/reinforce.png" alt="REINFORCE flowchart: play an episode, compare its reward with the baseline, raise or lower the probability of its choices" width="100%">
+An experiment shows why the **baseline** matters. Give every episode +3 "free points" and, without a baseline, the agent reinforces its mistakes too: 71% vs 98% after 300 rounds, averaged over 20 seeds.
 
-An experiment shows why the **baseline** matters. Give every episode +3 "free points", and without a baseline the agent reinforces its mistakes too (71% vs 98% after 300 rounds, averaged over 20 seeds).
+### Chapter 3 · GRPO: compare several attempts
 
-### Chapter 3 · GRPO: the algorithm behind DeepSeek-R1
+> *Ask the agent to try the same task several times. Compare the rewards. Make successful choices more likely and unsuccessful ones less likely.*
 
-<img src="assets/grpo_group.png" alt="GRPO: sample a group, compare, update" width="100%">
+<img src="assets/grpo_group.svg" alt="GRPO with four attempts at the same question: two wrong answers get reward 0, two correct answers get reward 1; compare the attempts, then make the correct ones more likely" width="100%">
 
-The agent now **reads the question** with a tiny neural network (bag-of-words → MLP), and we implement **GRPO** piece by piece:
+The agent now **reads the question** with a tiny neural network, and we build GRPO piece by piece:
 
 ```python
-advantage = (reward - group.mean()) / group.std()          # 👥 compare siblings
+advantage = (reward - group.mean()) / group.std()          # 👥 compare attempts at the same question
 ratio     = exp(new_logp - old_logp)
-objective = min(ratio * A, clip(ratio, 0.8, 1.2) * A)      # ✂️ don't move too far
+objective = min(ratio * A, clip(ratio, 0.8, 1.2) * A)      # ✂️ never change too much at once
 kl        = exp(ref_logp - new_logp) - (ref_logp - new_logp) - 1   # 🪢 stay close to the start
 loss      = (-objective + beta * kl).mean()
 ```
 
-Then you run experiments on each knob: group size, KL strength, clipping, and step size. Some honest findings from our runs: a tight KL leash (β=1) blocks learning (≈50%), no leash is fine on this task, and clipping helps a little but can't rescue a learning rate that's too high.
+Then you run experiments on each knob. Honest findings from our runs: a tight KL leash (β = 1) blocks learning (about 50%), no leash is fine on this task, and clipping helps a little but can't rescue a learning rate that is too high.
 
 ### Chapter 4 · A real LLM learns to use tools
 
 A **shop assistant** built on **Qwen2.5-0.5B-Instruct** gets two tools: a price `lookup` (the prices are invented, so the model *can't* know them) and a `calculator`. The reward is 1 only if the final number is exactly right. **We never reward tool use itself.**
 
-<img src="assets/loss_mask.png" alt="Loss mask: model tokens trained, tool tokens masked" width="100%">
+<img src="assets/agentic_task.svg" alt="Flowchart of an agent solving a task with a tool: read the question, choose a tool, use it, read the result, decide whether it has enough to answer; if not, choose a tool again; if yes, finish" width="100%">
+
+> *The model learns from the words it generated, not from the messages returned by tools.*
+
+<img src="assets/loss_mask.svg" alt="A short conversation: the user asks a question, the model calls the calculator, the tool returns the result, and the model answers; only the model's own turns are learned from" width="100%">
 
 Everything is written from scratch in PyTorch + 🤗 `transformers`, **without TRL, verl or peft**:
 
 | Piece | What it does | Lines |
 |:--|:--|:-:|
-| `rollout()` | Batched multi-turn generation: stop at `</lookup>`/`</calculator>`, run the tool, paste `<result>`, continue | ~45 |
-| loss mask | `1` for tokens the model wrote, `0` for tokens the tool wrote, so we never train on tool output | built into `rollout()` |
+| `rollout()` | Batched multi-turn generation: stop at `</lookup>` or `</calculator>`, run the tool, paste `<result>`, continue | ~45 |
+| loss mask | `1` for tokens the model wrote, `0` for prompt and tool tokens, so tool output is never trained on | built into `rollout()` |
 | `group_advantages()` | GRPO's group-relative baseline | 3 |
 | `grpo_loss()` | Clipped, token-level policy-gradient loss with an optional KL leash | 8 |
 | `LoRALinear` | Low-rank adapters from scratch; switching them off gives a free KL reference model | 13 |
 
-**Results** (64 held-out questions, greedy decoding, 25 GRPO steps × 64 episodes):
+#### Results
 
-<img src="assets/ch4_results.png" alt="Chapter 4 training curve and before/after accuracy" width="100%">
+<img src="assets/ch4_training.svg" alt="Line chart of training over 25 GRPO steps: training reward rises from 14% at step 1 to between 89% and 100% from step 10 on; use of both tools reaches 100% within the first few steps" width="100%">
+
+<img src="assets/ch4_before_after.svg" alt="Bar chart of held-out accuracy on 64 new questions before and after GRPO: math 64% to 100%, one lookup 6% to 100%, two lookups 13% to 100%, budget 0% to 100%, overall 16% to 100%" width="100%">
 
 | Question type | Example | Before | After |
 |:--|:--|:-:|:-:|
@@ -166,9 +183,9 @@ Everything is written from scratch in PyTorch + 🤗 `transformers`, **without T
 | `budget` | *I have 300 dollars and buy 41 markers. How much is left?* | 0% | **100%** |
 | **overall** | | **16%** | **100%** |
 
-Measured on an Apple M4 laptop (about 17 minutes in total). Held-out questions use new numbers and item combinations but the same question templates. The notebook's *honest scope* section spells out what this does and doesn't show.
+These numbers come from one 25-step run of `scripts/train_tool_agent.py` on an Apple M4 laptop (about 17 minutes in total). The 64 held-out questions use new numbers and item combinations but the same question templates. The notebook's *honest scope* section spells out what this does and doesn't show.
 
-**🕵️ Plot twist: 100% accurate, but not efficient.** Look closer and the agent makes tool calls it doesn't need. Before a pure math question it looks up a word like `tree` (→ `unknown item`) and only then calculates. The reward only checks the final answer, so extra calls were free. **RL optimizes exactly what you reward.** Habits also vary from run to run. Here are three of our 25-step runs, all at 100% held-out accuracy:
+**🕵️ Plot twist: right answers, wasteful habits.** Look closer and the agent makes tool calls it doesn't need. Before a pure math question it looks up a word like `tree` (→ `unknown item`) and only then calculates. The reward only checks the final answer, so extra calls were free. **RL optimizes exactly what you reward.** Habits also vary from run to run. Here are three of our 25-step runs:
 
 | Tool calls per question | run A, no cost | run B, no cost | run C, `--tool-cost 0.02` | fewest possible |
 |:--|:-:|:-:|:-:|:-:|
@@ -176,8 +193,9 @@ Measured on an Apple M4 laptop (about 17 minutes in total). Held-out questions u
 | `shop1` | 2.7 | 2.0 | **2.0** | 2 |
 | `shop2` | 3.0 | 3.0 | **3.0** | 3 |
 | `budget` | 3.0 | 2.0 | **2.0** | 2 |
+| held-out accuracy | 100% | 100% | 100% | |
 
-In run A the agent settled into a *lookup → lookup → calculator* ritual on nearly every question. Charging a small price per tool call (the same −0.02 idea as Chapter 1) gave the fewest possible calls on every shop question in run C, but the reflexive math lookup survived all three runs. The notebook also explains why the cost made training bumpier: GRPO's group normalization turns tiny reward differences into big pushes. These are single runs, not seed averages.
+In run A the agent settled into a *lookup → lookup → calculator* ritual on nearly every question. Charging a small price per tool call (the same −0.02 idea as Chapter 1) gave the fewest possible calls on every shop question in run C, but its reflexive math lookup survived. The notebook also explains why the cost made training bumpier: GRPO's group normalization turns tiny reward differences into big pushes. These are single runs, not seed averages.
 
 ---
 
@@ -208,7 +226,8 @@ Train-Your-RL-Agent/
 │   └── train_tool_agent.py                 # Chapter 4 as one self-contained script
 ├── tests/
 │   └── test_tool_agent.py                  # tools, reward, masking, GRPO loss, LoRA
-├── assets/                                 # diagrams (regenerate with assets/src/diagrams.py)
+├── assets/                                 # diagrams: .svg for the README, .png for the notebooks
+│   └── src/                                # the diagram generator (python assets/src/diagrams.py)
 └── requirements.txt
 ```
 
