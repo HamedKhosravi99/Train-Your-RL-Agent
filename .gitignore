@@ -8,3 +8,4 @@ venv/
 *.pt
 *_history.json
 .pytest_cache/
+assets/src/fonts/

@@ -1,370 +1,370 @@
-"""Regenerate the README/notebook diagrams:  python assets/src/diagrams.py [out_dir] [names...]
+"""Regenerate every course diagram:   python assets/src/diagrams.py [out_dir] [names...]
 
-Needs Google Chrome (set CHROME=/path/to/chrome if it isn't in the default macOS location) and an
-internet connection for the Inter / JetBrains Mono web fonts. Writes <name>.png at 2x resolution.
+Writes <name>.svg (README, crisp at any size) and <name>.png (2x, embedded in the notebooks).
+Needs fontTools + brotli (`pip install fonttools brotli`) and Google Chrome (set CHROME=... if it is
+not in the default macOS location). The Inter font is downloaded once into assets/src/fonts/.
+
+One figure = one idea. If a figure gets crowded, split it rather than shrinking the text.
 """
 import json
 import os
 import sys
-from flow import *
+
+from flow import INK, MARGIN, SIZE, WEIGHT, WIDTH, Canvas, measure, save
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..")
-ONLY = set(sys.argv[2:])
-DIAGRAMS = {}
+FIGURES = {}
 
 
-def diagram(fn):
-    DIAGRAMS[fn.__name__] = fn
-    return fn
+def figure(name, alt):
+    def register(fn):
+        FIGURES[name] = (fn, alt)
+        return fn
+    return register
+
+
+def below(box, gap=0):
+    x, y, w, h = box
+    return x + w / 2, y + h + gap
+
+
+def above(box, gap=0):
+    x, y, w, h = box
+    return x + w / 2, y - gap
+
+
+def right(box, gap=0):
+    x, y, w, h = box
+    return x + w + gap, y + h / 2
+
+
+def left(box, gap=0):
+    x, y, w, h = box
+    return x - gap, y + h / 2
 
 
 # ------------------------------------------------------------------------------------------------
-@diagram
+@figure("ladder", "Learning path with four stages: 1 Q-learning, learn from rewards. 2 REINFORCE, learn which "
+                  "actions are more likely to work. 3 GRPO, compare several attempts. 4 Agentic RL, train an LLM to use tools.")
 def ladder():
-    W, H = 1200, 360
-    b = title("Train Your RL Agent: the learning path",
-              "Four chapters. Each one adds a single new idea on top of the last.")
-    chapters = [
-        ("blue", "1", "Q-learning", ["Learn a score for every", "action from rewards."], "Q[s][a] += α·(target − Q)", "CPU · 1 min", "20% → 100%"),
-        ("green", "2", "REINFORCE", ["Learn probabilities directly,", "the way LLMs work."], "loss = −adv · log π(a|s)", "CPU · 1 min", "19% → 99%"),
-        ("orange", "3", "GRPO", ["Compare a group of attempts;", "the agent reads the question."], "adv = (r − mean) / std", "CPU · 2 min", "18% → 98%"),
-        ("violet", "4", "LLM agent", ["Qwen2.5-0.5B learns to plan", "lookup → calculator → answer."], "(loss * mask).sum()", "free GPU · ~20 min", "16% → 100%"),
-    ]
-    x, y, w, h, gap = 36, 104, 252, 220, 44
-    for i, (color, n, name, idea, code, hw, result) in enumerate(chapters):
-        cx = x + i * (w + gap)
-        c = COL[color]
-        b += f'<rect x="{cx}" y="{y}" width="{w}" height="{h}" rx="10" fill="#ffffff" stroke="{c["c"]}" stroke-width="2"/>'
-        b += f'<path d="M{cx} {y + 46} V{y + 10} Q{cx} {y} {cx + 10} {y} H{cx + w - 10} Q{cx + w} {y} {cx + w} {y + 10} V{y + 46} Z" fill="{c["c"]}"/>'
-        b += text(cx + 18, y + 24, f"Chapter {n}", 13, "#ffffff", 600, "start", extra='opacity=".85"')
-        b += text(cx + w - 18, y + 24, name, 16, "#ffffff", 700, "end")
-        b += multiline(cx + 18, y + 84, idea, 14, TEXT, 600, "start")
-        b += f'<rect x="{cx + 14}" y="{y + 118}" width="{w - 28}" height="32" rx="6" fill="{c["tint"]}"/>'
-        b += text(cx + 24, y + 134, code, 12, c["ink"], 600, "start", MONO)
-        b += f'<line x1="{cx + 14}" y1="{y + 170}" x2="{cx + w - 14}" y2="{y + 170}" stroke="{BORDER}"/>'
-        b += text(cx + 18, y + 194, hw, 12.5, TEXT2, 600, "start")
-        b += text(cx + w - 18, y + 194, result, 14, COL["green"]["ink"], 700, "end")
-        if i < 3:
-            b += arrow([(cx + w + 6, y + h / 2), (cx + w + gap - 6, y + h / 2)], width=2.5)
-    b += text(W - 36, 40, "held-out accuracy: before → after training", 12.5, TEXT2, 500, "end")
-    return W, H, b
+    stages = [("Q-learning", "Learn from rewards."),
+              ("REINFORCE", "Learn which actions are more likely to work."),
+              ("GRPO", "Compare several attempts at the same task."),
+              ("Agentic RL", "Train a real LLM to use tools.")]
+    card_h, gap = 86, 20
+    c = Canvas(140 + 4 * card_h + 3 * gap + 44)
+    y0 = c.header("Your learning path", "Four chapters. Each one adds a single new idea.")
+    cx = MARGIN + 24
+    c.line([(cx, y0 + card_h / 2), (cx, y0 + 3 * (card_h + gap) + card_h / 2)], INK["border"], 3, arrow=False)
+    for i, (name, desc) in enumerate(stages):
+        y = y0 + i * (card_h + gap)
+        last = i == len(stages) - 1
+        c.rect(cx + 44, y, WIDTH - MARGIN - (cx + 44), card_h, "accent" if last else "plain")
+        c.circle(cx, y + card_h / 2, 24, str(i + 1), filled=last)
+        c.text(cx + 70, y + card_h / 2 - 15, name, "node")
+        c.text(cx + 70, y + card_h / 2 + 17, desc, "sub")
+        c.text(WIDTH - MARGIN - 24, y + card_h / 2 - 15, f"Chapter {i + 1}", "small", anchor="end")
+    return c
 
 
 # ------------------------------------------------------------------------------------------------
-@diagram
+@figure("rl_loop", "Reinforcement learning loop: the agent takes an action (use the calculator), the environment "
+                   "sends feedback (56 is correct, reward +1), the agent learns what worked and tries again.")
 def rl_loop():
-    W, H = 1200, 400
-    b = title("Reinforcement learning is a loop",
-              "The agent acts, the world answers with a new situation and a reward, and the agent learns. Then it repeats.")
-    # Agent
-    ax, ay, aw, ah = 110, 120, 330, 220
-    b += box(ax, ay, aw, ah, "blue", style="tint", rx=12)
-    b += text(ax + aw / 2, ay + 34, "Agent", 20, COL["blue"]["ink"], 700)
-    b += text(ax + aw / 2, ay + 60, "our assistant (a Q-table)", 13, TEXT2, 500)
-    b += box(ax + 24, ay + 88, aw - 48, 46, "grey", ["Observe the situation"], style="plain", size=14)
-    b += badge(ax + 24, ay + 88, "1", "blue")
-    b += box(ax + 24, ay + 150, aw - 48, 46, "violet", ["Learn: update its scores"], style="tint", size=14)
-    b += badge(ax + 24, ay + 150, "5", "violet")
-    # Environment
-    ex, ey, ew, eh = 760, 120, 330, 220
-    b += box(ex, ey, ew, eh, "orange", style="tint", rx=12)
-    b += text(ex + ew / 2, ey + 34, "Environment", 20, COL["orange"]["ink"], 700)
-    b += text(ex + ew / 2, ey + 60, "the tiny world: tools + questions", 13, TEXT2, 500)
-    b += multiline(ex + ew / 2, ey + 140, ["Runs the button the agent pressed", "and decides what happens next."], 14, TEXT, 600)
-    # Arrows
-    y1, y2, y3 = ay + 70, ay + 140, ay + 190
-    b += arrow([(ax + aw + 4, y1), (ex - 6, y1)], "blue", 2.5)
-    b += badge(560, y1 - 22, "2", "blue") + text(578, y1 - 22, "Act: press a button", 14, TEXT, 600, "start")
-    b += arrow([(ex - 4, y2), (ax + aw + 6, y2)], "orange", 2.5)
-    b += badge(530, y2 - 22, "3", "orange") + text(548, y2 - 22, "Result: the new situation", 14, TEXT, 600, "start")
-    b += arrow([(ex - 4, y3), (ax + aw + 6, y3)], "green", 2.5)
-    b += badge(530, y3 - 22, "4", "green") + text(548, y3 - 22, "Reward: +1 / −1 / small costs", 14, TEXT, 600, "start")
-    b += text(W / 2, H - 28, "observe → act → result → reward → learn → repeat on the next task", 13.5, TEXT2, 600)
-    return W, H, b
+    c = Canvas(560)
+    c.header("How reinforcement learning works", "The agent tries something, the world reacts, and the agent learns.")
+    agent = c.node(60, 176, "Agent", "decides what to do", "accent", w=260, min_h=104)
+    env = c.node(580, 176, "Environment", "reacts to the action", "plain", w=260, min_h=104)
+    learn = c.node(580, 392, "Agent learns", "keeps what worked", "surface", w=260, min_h=104)
+    # 1. action
+    (x1, y1), (x2, _) = right(agent, 4), left(env, 6)
+    c.line([(x1, y1), (x2, y1)])
+    c.step((x1 + x2) / 2, y1 - 26, 1, "Action")
+    c.text((x1 + x2) / 2, y1 + 25, "use the calculator", "sub", anchor="middle")
+    # 2. feedback
+    (fx, fy), (_, ly) = below(env, 4), above(learn, 6)
+    c.line([(fx, fy), (fx, ly)])
+    c.step(fx - 18, (fy + ly) / 2 - 15, 2, "Feedback", anchor="end")
+    c.text(fx - 18, (fy + ly) / 2 + 16, "“56 is correct” · reward +1", "sub", anchor="end")
+    # 3. try again
+    (bx, by), (ax, ay) = left(learn, 4), below(agent, 6)
+    c.line([(bx, by), (ax, by), (ax, ay)])
+    c.step((bx + ax) / 2 + 30, by - 26, 3, "Try again")
+    c.text((bx + ax) / 2 + 30, by + 26, "a little smarter each time", "sub", anchor="middle")
+    return c
 
 
 # ------------------------------------------------------------------------------------------------
-@diagram
-def agentic_loop():
-    W, H = 1200, 360
-    b = title("Agentic RL: several decisions, one reward at the end",
-              "The agent picks a tool, reads what it returns, and decides whether to finish or try again.")
-    cy, h = 214, 64
-    nodes = {}
-    def put(key, x, w):
-        nodes[key] = (x, w)
-    xs = 36
-    put("q", xs, 128)
-    put("choose", xs + 128 + 44, 140)
-    put("tool", xs + 128 + 44 + 140 + 44, 130)
-    put("read", xs + 128 + 44 + 140 + 44 + 130 + 44, 140)
-    dx = nodes["read"][0] + 140 + 44 + 55          # diamond center
-    put("finish", dx + 55 + 44, 104)
-    put("reward", nodes["finish"][0] + 104 + 44, 140)
+@figure("agentic_task", "Flowchart of an agent solving 'What is 37 times 48?': read the question, choose a tool "
+                        "(calculator), use the tool, read the result (1,776), decide whether it has enough to answer; "
+                        "if not, choose a tool again; if yes, finish with the answer.")
+def agentic_task():
+    c = Canvas(930)
+    c.header("An agent solving a task with a tool", "Example: “What is 37 × 48?”")
+    x, w, gap = 140, 400, 34
+    cx = x + w / 2
+    steps = [("Read the question", "What is 37 × 48?", "plain"),
+             ("Choose a tool", "the calculator", "accent"),
+             ("Use the tool", "calculator(37 × 48)", "plain"),
+             ("Read the result", "1,776", "plain")]
+    boxes, y = [], 140
+    for title, sub, style in steps:
+        b = c.node(x, y, title, sub, style, w=w)
+        if boxes:
+            c.line([below(boxes[-1], 4), (cx, y - 6)])
+        boxes.append(b)
+        y += b[3] + gap
+    dy = y + 60
+    c.line([below(boxes[-1], 4), (cx, dy - 60 - 6)])
+    c.diamond(cx, dy, 300, 120, "Enough to answer?")
+    fin = c.node(x, dy + 60 + gap + 10, "Finish", "“The answer is 1,776.”", "success", w=w)
+    c.line([(cx, dy + 60 + 4), (cx, fin[1] - 6)])
+    c.halo_text(cx + 26, dy + 60 + (gap + 10) / 2, "yes", "label", anchor="start")
+    # retry branch on the right
+    rx = x + w + 90
+    ty = boxes[1][1] + boxes[1][3] / 2
+    c.line([(cx + 150 + 4, dy), (rx, dy), (rx, ty), (x + w + 6, ty)])
+    c.text(rx + 16, (dy + ty) / 2 - 14, "no:", "label")
+    c.text(rx + 16, (dy + ty) / 2 + 14, "get more", "sub")
+    c.text(rx + 16, (dy + ty) / 2 + 40, "information", "sub")
+    return c
 
-    b += pill(nodes["q"][0], cy - h / 2, 128, h, "grey", "Question", style="plain")
-    b += box(nodes["choose"][0], cy - h / 2, 140, h, "blue", ["Choose a tool"], style="solid")
-    b += box(nodes["tool"][0], cy - h / 2, 130, h, "orange", ["Tool runs"], style="solid")
-    b += box(nodes["read"][0], cy - h / 2, 140, h, "blue", ["Read the result"], style="tint")
-    b += diamond(dx, cy, 110, 92, ["Got an", "answer?"])
-    b += pill(nodes["finish"][0], cy - h / 2, 104, h, "blue", "Finish", style="solid")
-    b += box(nodes["reward"][0], cy - h / 2, 140, h, "green", ["Reward"], ["+1 or −1"], style="tint")
 
-    # examples under the nodes
-    ex = [("q", '"What is 7 × 8?"'), ("choose", "Calculator"), ("tool", "returns 56"), ("read", "has an answer"),
-          ("finish", "done"), ("reward", "+1 ✓")]
-    for key, s in ex:
-        x, w = nodes[key]
-        b += text(x + w / 2, cy + h / 2 + 22, s, 12.5, TEXT2, 500, font=MONO)
-
-    def right(k): return nodes[k][0] + nodes[k][1]
-    for a, c in [("q", "choose"), ("choose", "tool"), ("tool", "read")]:
-        b += arrow([(right(a) + 4, cy), (nodes[c][0] - 5, cy)])
-    b += arrow([(right("read") + 4, cy), (dx - 55 - 5, cy)])
-    b += arrow([(dx + 55 + 4, cy), (nodes["finish"][0] - 5, cy)], "green", 2.5)
-    b += label((dx + 55 + nodes["finish"][0]) / 2, cy - 14, "yes", COL["green"]["ink"], 12.5, 700)
-    b += arrow([(right("finish") + 4, cy), (nodes["reward"][0] - 5, cy)])
-    # "no" loop over the top, back to Choose a tool
-    top = cy - 84
-    chx = nodes["choose"][0] + 70
-    b += arrow([(dx, cy - 46 - 2), (dx, top), (chx, top), (chx, cy - h / 2 - 5)], "red", 2)
-    b += note((dx + chx) / 2, top, "no: try another tool (−0.15 if it was the wrong one)", COL["red"]["ink"], 13, 600)
-    # learning feedback along the bottom
-    bot = cy + 92
-    rx = nodes["reward"][0] + 70
-    b += arrow([(rx, cy + h / 2 + 34), (rx, bot), (chx, bot), (chx, cy + h / 2 + 34)], "violet", 2, dashed=True)
-    b += note((rx + chx) / 2, bot + 30, "after the episode: the reward updates how the agent chooses next time", COL["violet"]["ink"], 13, 600)
-    return W, H, b
+@figure("agentic_learning", "Learning cycle: the completed task is checked, the agent receives a reward, and its "
+                            "future decisions improve before the next task.")
+def agentic_learning():
+    c = Canvas(500)
+    c.header("How the agent learns from the whole task", "One reward at the end shapes every decision it made.")
+    w, x0, x1, r0, r1 = 330, 60, 510, 150, 330
+    tl = c.node(x0, r0, "Completed task", "all the steps it took", "plain", w=w, min_h=100)
+    tr = c.node(x1, r0, "Check the outcome", "Is 1,776 correct?", "plain", w=w, min_h=100)
+    br = c.node(x1, r1, "Reward", "+1 if correct, −1 if not", "surface", w=w, min_h=100)
+    bl = c.node(x0, r1, "Better decisions", "repeat what worked", "accent", w=w, min_h=100)
+    c.line([right(tl, 4), left(tr, 6)])
+    c.line([below(tr, 4), above(br, 6)])
+    c.line([left(br, 4), right(bl, 6)])
+    c.line([above(bl, 4), below(tl, 6)])
+    c.text(x0 + w / 2 + 18, (r0 + 100 + r1) / 2, "next task", "label")
+    return c
 
 
 # ------------------------------------------------------------------------------------------------
-@diagram
+@figure("two_states", "Q-learning success path: needs information, uses the right tool (cost 0.02), has the "
+                      "information, finishes (+1), success. Mistakes listed separately: wrong tool -0.15, finishing "
+                      "too early -1, more than 4 moves -0.5.")
 def two_states():
-    W, H = 1200, 430
-    b = title("Our agent's two situations",
-              "It must get an answer from the right tool before it finishes. Every arrow shows the button and its reward.")
-    y, h = 170, 76
-    sx = 70
-    nx, nw = 150, 230
-    hx, hw = 560, 230
-    gx, gw = 960, 190
-    b += f'<circle cx="{sx}" cy="{y + h / 2}" r="9" fill="{TEXT}"/>'
-    b += text(sx, y + h / 2 + 26, "start", 12, TEXT2, 500)
-    b += arrow([(sx + 12, y + h / 2), (nx - 5, y + h / 2)])
-    b += box(nx, y, nw, h, "blue", ["Needs a tool"], ["no answer yet"], style="tint")
-    b += box(hx, y, hw, h, "blue", ["Has an answer"], ["a tool returned a result"], style="tint")
-    b += pill(gx, y + 6, gw, h - 12, "green", "Success  +1")
-    # main path
-    b += arrow([(nx + nw + 4, y + h / 2), (hx - 5, y + h / 2)], "green", 2.5)
-    b += label((nx + nw + hx) / 2, y + h / 2 - 18, "right tool", COL["green"]["ink"], 13.5, 700)
-    b += label((nx + nw + hx) / 2, y + h / 2 + 18, "−0.02", TEXT2, 12.5, 600, MONO)
-    b += arrow([(hx + hw + 4, y + h / 2), (gx - 5, y + h / 2)], "green", 2.5)
-    b += label((hx + hw + gx) / 2, y + h / 2 - 18, "Finish", COL["green"]["ink"], 13.5, 700)
-    b += label((hx + hw + gx) / 2, y + h / 2 + 18, "+1", TEXT2, 12.5, 600, MONO)
-    # self-loop: wrong tool
-    lx1, lx2 = nx + 60, nx + nw - 60
-    b += (f'<path d="M{lx1} {y - 2} C{lx1 - 10} {y - 70} {lx2 + 10} {y - 70} {lx2} {y - 6}" fill="none" '
-          f'stroke="{COL["red"]["c"]}" stroke-width="2" marker-end="url(#m-red)"/>')
-    b += label(nx + nw / 2, y - 56, "wrong tool  −0.15", COL["red"]["ink"], 13, 700)
-    # finish too early
-    fy = 340
-    b += arrow([(nx + nw / 2, y + h + 4), (nx + nw / 2, fy - 5)], "red", 2)
-    b += label(nx + nw / 2 + 92, (y + h + fy) / 2, "Finish too early  −1", COL["red"]["ink"], 13, 700)
-    b += pill(nx + 20, fy, nw - 40, 56, "red", "Failure  −1")
-    # timeout note
-    b += text(hx + hw / 2 + 140, fy + 28, "Any situation: 4 moves without finishing  →  −0.5 and the episode ends",
-              13, TEXT2, 500)
-    return W, H, b
+    c = Canvas(650)
+    c.header("Q-learning: the agent's two situations", "It needs information from the right tool before it can finish.")
+    x, w = 60, 290
+    n1 = c.node(x, 150, "Needs information", "no answer yet", "plain", w=w, min_h=96)
+    n2 = c.node(x, 326, "Has the information", "a tool returned it", "plain", w=w, min_h=96)
+    n3 = c.node(x, 502, "Success", "reward +1", "success", w=w, min_h=96)
+    for a, b, act, pts in [(n1, n2, "uses the right tool", "−0.02 points"), (n2, n3, "presses Finish", "+1 point")]:
+        (ax, ay), (_, by) = below(a, 4), above(b, 6)
+        c.line([(ax, ay), (ax, by)], INK["success"], 2.6)
+        c.text(ax + 20, (ay + by) / 2 - 13, act, "label")
+        c.text(ax + 20, (ay + by) / 2 + 14, pts, "sub")
+    # mistakes, kept away from the main path
+    px = 520
+    c.raw(f'<line x1="{px - 40}" y1="150" x2="{px - 40}" y2="598" stroke="{INK["border"]}" stroke-width="1.5"/>')
+    c.text(px, 166, "Mistakes cost points", "node")
+    y = 204
+    for title, sub, style in [("Uses the wrong tool", "still no answer · −0.15", "plain"),
+                              ("Finishes too early", "the task fails · −1", "failure"),
+                              ("Takes more than 4 moves", "time is up · −0.5", "plain")]:
+        b = c.node(px, y, title, sub, style, w=WIDTH - MARGIN - px, align="left")
+        y += b[3] + 16
+    c.text(MARGIN, 628, "In RL words: a situation is a state, and pressing a button is an action.", "small")
+    return c
+
 
 # ------------------------------------------------------------------------------------------------
-@diagram
+@figure("reinforce", "REINFORCE: try an episode, get a reward, compare it with the usual reward. Better than usual: "
+                     "make those choices more likely. Worse than usual: make those choices less likely.")
 def reinforce():
-    W, H = 1200, 430
-    b = title("REINFORCE: make better-than-usual episodes more likely",
-              "One score for the whole episode, compared with a running average (the baseline).")
-    b += box(820, 26, 344, 50, "violet", [], style="tint", rx=8)
-    b += text(992, 51, "loss = −(R − b) · Σ log π(aₜ|sₜ)", 14, COL["violet"]["ink"], 600, font=MONO)
-    cy, h = 236, 72
-    b += box(36, cy - h / 2, 176, h, "blue", ["Play an episode"], ["sample buttons from π"], style="solid", sub_size=12)
-    b += box(256, cy - h / 2, 170, h, "green", ["Total reward R"], ["e.g. R = +0.98"], style="tint")
-    dcx = 536
-    b += diamond(dcx, cy, 150, 104, ["R > baseline b ?"], size=13.5)
-    ux, uw, uh = 666, 260, 70
-    uy, ly = cy - 112, cy + 42
-    b += box(ux, uy, uw, uh, "violet", ["Make its choices more likely"], ["raise log π of each button it pressed"], style="tint", size=14, sub_size=12)
-    b += box(ux, ly, uw, uh, "violet", ["Make its choices less likely"], ["lower log π of each button it pressed"], style="tint", size=14, sub_size=12)
-    gx, gw = 980, 184
-    b += box(gx, cy - h / 2, gw, h, "grey", ["Update baseline"], ["b ← 0.9·b + 0.1·R"], style="plain", sub_font=MONO, sub_size=12)
-    b += arrow([(212 + 4, cy), (256 - 5, cy)])
-    b += arrow([(426 + 4, cy), (dcx - 75 - 5, cy)])
-    b += arrow([(dcx, cy - 52 - 2), (dcx, uy + uh / 2), (ux - 5, uy + uh / 2)], "green", 2.5)
-    b += note(dcx + 64, uy + uh / 2, "yes: advantage > 0", COL["green"]["ink"], 13, 700)
-    b += arrow([(dcx, cy + 52 + 2), (dcx, ly + uh / 2), (ux - 5, ly + uh / 2)], "red", 2.5)
-    b += note(dcx + 64, ly + uh / 2 + 30, "no: advantage < 0", COL["red"]["ink"], 13, 700)
-    mx = gx - 26
-    b += arrow([(ux + uw + 4, uy + uh / 2), (mx, uy + uh / 2), (mx, cy - 8), (gx - 5, cy - 8)])
-    b += arrow([(ux + uw + 4, ly + uh / 2), (mx, ly + uh / 2), (mx, cy + 8), (gx - 5, cy + 8)])
-    loop_y = 392
-    b += arrow([(gx + gw / 2, cy + h / 2 + 4), (gx + gw / 2, loop_y), (124, loop_y), (124, cy + h / 2 + 5)], "violet", 2, dashed=True)
-    b += note(560, loop_y, "next episode", COL["violet"]["ink"], 13, 600)
-    return W, H, b
+    c = Canvas(730)
+    c.header("REINFORCE: learn from better-than-usual attempts", "Was this attempt better or worse than usual?")
+    w = 440
+    x = (WIDTH - w) / 2
+    n1 = c.node(x, 140, "Try an episode", "press buttons until Finish", "plain", w=w)
+    n2 = c.node(x, n1[1] + n1[3] + 40, "Get a reward", "for example +0.98", "plain", w=w)
+    n3 = c.node(x, n2[1] + n2[3] + 40, "Compare with usual", "usual = the average of recent rewards", "accent", w=w)
+    c.line([below(n1, 4), above(n2, 6)])
+    c.line([below(n2, 4), above(n3, 6)])
+    fy = n3[1] + n3[3] + 34
+    cw = 360
+    lx, rx = 60, WIDTH - 60 - cw
+    top = fy + 40
+    c.line([below(n3, 4), (WIDTH / 2, fy)], arrow=False)
+    c.line([(WIDTH / 2, fy), (lx + cw / 2, fy), (lx + cw / 2, top - 6)], INK["success"], 2.6)
+    c.line([(WIDTH / 2, fy), (rx + cw / 2, fy), (rx + cw / 2, top - 6)], INK["failure"], 2.6)
+    c.node(lx, top, "Better than usual", "↑ make those choices more likely", "success", w=cw)
+    c.node(rx, top, "Worse than usual", "↓ make those choices less likely", "failure", w=cw)
+    return c
 
 
 # ------------------------------------------------------------------------------------------------
-@diagram
+@figure("grpo_group", "GRPO with four attempts at 'What is 37 times 48?': attempts A and C are wrong (reward 0), "
+                      "B and D are correct (reward 1). Compare the attempts, then update the policy so B and D "
+                      "become more likely and A and C less likely.")
 def grpo_group():
-    W, H = 1200, 520
-    b = title("GRPO: let a group of attempts compete",
-              "Answer the same question 8 times, score every answer, and push toward the ones that beat the group average.")
-    rewards = [1, 0, 1, 0, 0, 1, 0, 0]
-    mean = sum(rewards) / len(rewards)
-    std = (sum((r - mean) ** 2 for r in rewards) / (len(rewards) - 1)) ** 0.5
-    adv = [(r - mean) / std for r in rewards]
-    qy = 290
-    b += box(36, qy - 60, 210, 120, "grey", ["One question"], ['"How much do 37', 'notebooks cost?"'], style="plain", sub_size=13)
-    ax, aw, rh, gap, top = 326, 230, 34, 7, 128
-    b += text(ax, top - 22, "8 sampled answers", 13, TEXT2, 700, "start")
-    b += text(ax + aw + 70, top - 22, "advantage", 13, TEXT2, 700, "middle")
-    bus = ax + aw + 150
-    for i, (r, a) in enumerate(zip(rewards, adv)):
-        y = top + i * (rh + gap)
-        color = "green" if r else "red"
-        c = COL[color]
-        b += (f'<path d="M{246 + 4} {qy} C{290} {qy} {280} {y + rh / 2} {ax - 6} {y + rh / 2}" fill="none" '
-              f'stroke="{BORDER}" stroke-width="1.6" marker-end="url(#m-arrow)"/>')
-        b += f'<rect x="{ax}" y="{y}" width="{aw}" height="{rh}" rx="7" fill="{c["tint"]}" stroke="{c["c"]}" stroke-width="1.6"/>'
-        b += text(ax + 14, y + rh / 2, f"answer {i + 1}", 13.5, TEXT, 600, "start")
-        b += text(ax + aw - 14, y + rh / 2, f"reward {r}  {'✓' if r else '✗'}", 13.5, c["ink"], 700, "end", MONO)
-        b += text(ax + aw + 70, y + rh / 2, f"{a:+.2f}", 14, c["ink"], 700, "middle", MONO)
-        b += f'<line x1="{ax + aw + 112}" y1="{y + rh / 2}" x2="{bus}" y2="{y + rh / 2}" stroke="{BORDER}" stroke-width="1.6"/>'
-    last = top + 7 * (rh + gap) + rh / 2
-    b += f'<line x1="{bus}" y1="{top + rh / 2}" x2="{bus}" y2="{last}" stroke="{BORDER}" stroke-width="1.6"/>'
-    ux, uw = 790, 220
-    b += arrow([(bus, qy), (ux - 5, qy)], width=2.2)
-    b += box(ux, qy - 46, uw, 92, "violet", ["Clipped update"], ["+ optional KL leash"], style="solid")
-    b += arrow([(ux + uw + 4, qy), (1060 - 5, qy)], width=2.2)
-    b += box(1060, qy - 46, 104, 92, "blue", ["Better", "policy"], style="tint")
-    b += box(ux - 40, qy + 74, 414, 64, "violet", [], style="tint", rx=8)
-    b += text(ux - 24, qy + 94, f"mean = {mean:.3f}  ·  std = {std:.3f}", 13, COL["violet"]["ink"], 600, "start", MONO)
-    b += text(ux - 24, qy + 118, "advantage = (reward − mean) / std", 13, COL["violet"]["ink"], 600, "start", MONO)
-    b += text(36, H - 30, "No critic network: the group's own average is the baseline. If all 8 answers get the same reward, "
-              "every advantage is 0 and that question teaches nothing.", 13, TEXT2, 500, "start")
-    return W, H, b
+    c = Canvas(790)
+    c.header("GRPO: compare several attempts", "A simplified picture with 4 attempts. In the notebooks each question gets 8.")
+    qw = 400
+    q = c.node((WIDTH - qw) / 2, 140, "What is 37 × 48?", None, "surface", w=qw, min_h=64)
+    attempts = [("A", "1,676", False), ("B", "1,776", True), ("C", "1,786", False), ("D", "1,776", True)]
+    cw, gap = 186, 20
+    x0 = (WIDTH - (4 * cw + 3 * gap)) / 2
+    top, ch = 268, 160
+    bus_y = top - 34
+    qx, qy = below(q, 4)
+    c.line([(qx, qy), (qx, bus_y)], arrow=False)
+    c.raw(f'<line x1="{x0 + cw / 2}" y1="{bus_y}" x2="{x0 + 3 * (cw + gap) + cw / 2}" y2="{bus_y}" '
+          f'stroke="{INK["arrow"]}" stroke-width="2.25"/>')
+    bottom_bus = top + ch + 34
+    for i, (name, answer, ok) in enumerate(attempts):
+        x = x0 + i * (cw + gap)
+        mx = x + cw / 2
+        c.line([(mx, bus_y), (mx, top - 6)])
+        c.rect(x, top, cw, ch, "success" if ok else "plain")
+        c.text(mx, top + 28, f"Attempt {name}", "small", anchor="middle", weight=600)
+        c.text(mx, top + 68, answer, "node", anchor="middle", size=26, weight=700)
+        c.text(mx, top + 106, "✓ correct" if ok else "✗ wrong", "label", anchor="middle",
+               color=INK["success"] if ok else INK["failure"])
+        c.text(mx, top + 134, f"reward {1 if ok else 0}", "sub", anchor="middle")
+        c.line([(mx, top + ch + 4), (mx, bottom_bus)], arrow=False)
+    c.raw(f'<line x1="{x0 + cw / 2}" y1="{bottom_bus}" x2="{x0 + 3 * (cw + gap) + cw / 2}" y2="{bottom_bus}" '
+          f'stroke="{INK["arrow"]}" stroke-width="2.25"/>')
+    nw = 520
+    cmp_ = c.node((WIDTH - nw) / 2, bottom_bus + 40, "Compare the attempts",
+                  "B and D did better than the group's average", "plain", w=nw)
+    c.line([(WIDTH / 2, bottom_bus), (WIDTH / 2, cmp_[1] - 6)])
+    upd = c.node((WIDTH - nw) / 2, cmp_[1] + cmp_[3] + 40, "Update the policy",
+                 "B and D become more likely, A and C less likely", "accent", w=nw)
+    c.line([below(cmp_, 4), above(upd, 6)])
+    return c
 
 
 # ------------------------------------------------------------------------------------------------
-@diagram
+@figure("loss_mask", "A short conversation: the user asks what 37 times 48 is, the model calls the calculator, "
+                     "the tool returns 1776, and the model answers. Only the two model turns are learned from; "
+                     "the question and the tool result are context the model reads but is not trained to write.")
 def loss_mask():
-    W, H = 1200, 390
-    b = title("One rollout, one token sequence, one loss mask",
-              "The model writes some tokens and the tools write others. Only the model's own tokens are trained.")
-    segs = [("grey", "prompt", "system prompt + question", 0),
-            ("blue", "model", "<lookup>notebook</lookup>", 1),
-            ("orange", "tool", "<result>3.75</result>", 0),
-            ("blue", "model", "<calculator>37*3.75</calculator>", 1),
-            ("orange", "tool", "<result>138.75</result>", 0),
-            ("blue", "model", "<answer>138.75</answer>", 1)]
-    widths = [128] + [len(t) * 6.7 + 20 for _, _, t, _ in segs[1:]]
-    gap = (1128 - sum(widths)) / (len(segs) - 1)
-    x, y, h = 36, 136, 64
-    for (color, role, label_text, m), w in zip(segs, widths):
-        c = COL[color]
-        if color == "grey":
-            b += f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="8" fill="#f6f8fa" stroke="{BORDER}" stroke-width="2"/>'
-            b += multiline(x + w / 2, y + h / 2, ["system prompt", "+ question"], 12.5, TEXT2, 600)
-            ink = TEXT2
-        else:
-            fill = "url(#hatch)" if color == "orange" else c["tint"]
-            b += f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="8" fill="{fill}" stroke="{c["c"]}" stroke-width="2"/>'
-            if color == "orange":
-                b += f'<rect x="{x + 6}" y="{y + h / 2 - 12}" width="{w - 12}" height="24" rx="5" fill="#ffffff" opacity=".9"/>'
-            b += text(x + w / 2, y + h / 2, label_text, 11.5, c["ink"], 600, font=MONO)
-            ink = c["ink"]
-        b += text(x + 2, y - 16, role, 12.5, ink, 700, "start")
-        n = int((w - 4) // 17)
-        cell_fill, cell_ink = (COL["blue"]["c"], "#ffffff") if m else ("#eaeef2", TEXT2)
-        for k in range(n):
-            cx = x + 2 + k * 17
-            b += f'<rect x="{cx}" y="{y + h + 14}" width="14" height="20" rx="3" fill="{cell_fill}"/>'
-            b += text(cx + 7, y + h + 24.5, str(m), 11, cell_ink, 700, font=MONO)
-        x += w + gap
-    ly = y + h + 64
-    b += text(36, ly, "loss_mask", 13, TEXT, 700, "start", MONO)
-    b += f'<rect x="130" y="{ly - 10}" width="14" height="20" rx="3" fill="{COL["blue"]["c"]}"/>' + text(137, ly, "1", 11, "#ffffff", 700, font=MONO)
-    b += text(152, ly, "written by the model: gets a gradient", 13, TEXT2, 500, "start")
-    b += f'<rect x="430" y="{ly - 10}" width="14" height="20" rx="3" fill="#eaeef2"/>' + text(437, ly, "0", 11, TEXT2, 700, font=MONO)
-    b += text(452, ly, "prompt or tool output: skipped", 13, TEXT2, 500, "start")
-    chip_w = 238
-    b += pill(1164 - chip_w, ly - 17, chip_w, 34, "green", "reward 1: final answer correct", style="tint", size=13)
-    b += box(36, 318, 1128, 48, "violet", [], style="tint", rx=8)
-    b += text(600, 342, "loss = Σₜ maskₜ · −min(ratioₜ·A, clip(ratioₜ)·A) / Σₜ maskₜ   ·   A = this answer's group advantage",
-              13, COL["violet"]["ink"], 600, font=MONO)
-    return W, H, b
+    c = Canvas(640)
+    c.header("What the LLM learns from", "It learns from the words it wrote, not from what tools sent back.")
+    rows = [("User", "What is 37 × 48?", "ghost", "not trained"),
+            ("Model", "<calculator>37 * 48</calculator>", "accent", "learned from"),
+            ("Tool", "1776", "ghost", "not trained"),
+            ("Model", "<answer>1776</answer>", "accent", "learned from")]
+    y = 146
+    for role, said, style, tag in rows:
+        c.text(MARGIN, y + 32, role, "node", color=INK["text2"])
+        bw = measure(said, SIZE["node"], WEIGHT["node"]) + 48
+        c.rect(150, y, bw, 64, style)
+        c.text(150 + 24, y + 32, said, "node")
+        c.text(WIDTH - MARGIN, y + 32, tag, "label", anchor="end",
+               color=INK["accent_ink"] if style == "accent" else INK["text2"])
+        y += 82
+    ly = y + 30
+    c.raw(f'<line x1="{MARGIN}" y1="{ly - 22}" x2="{WIDTH - MARGIN}" y2="{ly - 22}" stroke="{INK["border"]}" stroke-width="1.5"/>')
+    c.rect(MARGIN, ly + 6, 28, 28, "accent", rx=7)
+    c.text(MARGIN + 44, ly + 20, "Written by the model: the model learns from it.", "sub", color=INK["text"])
+    c.rect(MARGIN, ly + 56, 28, 28, "ghost", rx=7)
+    c.text(MARGIN + 44, ly + 70, "Question and tool results: the model reads them,", "sub", color=INK["text"])
+    c.text(MARGIN + 44, ly + 98, "but it is not trained to write them.", "sub", color=INK["text"])
+    return c
+
 
 # ------------------------------------------------------------------------------------------------
-@diagram
-def ch4_results():
-    log = json.load(open(os.path.join(HERE, "ch4_history.json")))   # written by scripts/train_tool_agent.py
-    hist = log["history"]
-    W, H = 1200, 490
-    b = title("Chapter 4 results: Qwen2.5-0.5B learns to use its tools",
-              "Left: training, 25 GRPO steps × 64 episodes.  Right: 64 held-out questions, greedy decoding.")
-    GRID, AX = "#eaeef2", "#8c959f"
-    # ---- line panel
-    x0, x1, y0, y1 = 84, 560, 162, 420
+def _history():
+    return json.load(open(os.path.join(HERE, "ch4_history.json")))   # written by scripts/train_tool_agent.py
+
+
+def _training_alt():
+    h = json.load(open(os.path.join(HERE, "ch4_history.json")))["history"]
+    late = [x["reward"] for x in h[9:]]
+    return (f"Line chart of Chapter 4 training over {len(h)} GRPO steps: training reward rises from "
+            f"{h[0]['reward']:.0%} at step 1 to between {min(late):.0%} and {max(late):.0%} from step 10 on; "
+            f"use of the lookup and calculator tools reaches 100% within the first few steps.")
+
+
+@figure("ch4_training", _training_alt())
+def ch4_training():
+    hist = _history()["history"]
+    c = Canvas(580)
+    c.header("Training progress", "Chapter 4 · share of the 64 practice episodes at each GRPO step")
+    x0, x1, y0, y1 = 110, 740, 200, 480
     sx = lambda step: x0 + (step - 1) / (len(hist) - 1) * (x1 - x0)
     sy = lambda v: y1 - v * (y1 - y0)
     for v in (0, 0.25, 0.5, 0.75, 1.0):
-        b += f'<line x1="{x0}" y1="{sy(v)}" x2="{x1}" y2="{sy(v)}" stroke="{GRID}" stroke-width="1"/>'
-        b += text(x0 - 10, sy(v), f"{v:.0%}", 12, TEXT2, 500, "end")
-    for st in (1, 5, 10, 15, 20, 25):
-        b += text(sx(st), y1 + 20, str(st), 12, TEXT2, 500)
-    b += text((x0 + x1) / 2, y1 + 44, "GRPO step", 12.5, TEXT2, 600)
-    series = [("lookup_use", "green", "uses lookup"), ("calculator_use", "orange", "uses calculator"), ("reward", "blue", "training reward")]
-    for key, color, name in series:
+        c.raw(f'<line x1="{x0}" y1="{sy(v)}" x2="{x1}" y2="{sy(v)}" stroke="#EDF0F3" stroke-width="1.2"/>')
+        c.text(x0 - 14, sy(v), f"{v:.0%}", "small", anchor="end")
+    for step in (1, 5, 10, 15, 20, 25):
+        c.text(sx(step), y1 + 26, str(step), "small", anchor="middle")
+    c.text((x0 + x1) / 2, y1 + 60, "GRPO step", "small", anchor="middle", weight=600)
+    for key, color, width, dash in [("lookup_use", "#B4BCC4", 2.4, ' stroke-dasharray="7 6"'),
+                                    ("calculator_use", "#8A949E", 2.4, ""), ("reward", INK["accent"], 3.2, "")]:
         pts = " ".join(f"{sx(i + 1):.1f},{sy(h[key]):.1f}" for i, h in enumerate(hist))
-        b += f'<polyline points="{pts}" fill="none" stroke="{COL[color]["c"]}" stroke-width="2.2" stroke-linejoin="round"/>'
+        c.raw(f'<polyline points="{pts}" fill="none" stroke="{color}" stroke-width="{width}" '
+              f'stroke-linejoin="round" stroke-linecap="round"{dash}/>')
     for i, h in enumerate(hist):
-        b += f'<circle cx="{sx(i + 1):.1f}" cy="{sy(h["reward"]):.1f}" r="4" fill="{COL["blue"]["c"]}" stroke="#ffffff" stroke-width="2"/>'
+        c.raw(f'<circle cx="{sx(i + 1):.1f}" cy="{sy(h["reward"]):.1f}" r="4.6" fill="{INK["accent"]}" '
+              f'stroke="#FFFFFF" stroke-width="2"/>')
+    first, last = hist[0]["reward"], hist[-1]["reward"]
+    c.text(sx(1) + 14, sy(first) + 2, f"{first:.0%}", "label")
+    c.text(x1 + 14, sy(last) + 12, "training", "label")
+    c.text(x1 + 14, sy(last) + 36, "reward", "label")
+    c.text(x1 + 14, sy(1.0) - 16, "tool use", "small")
+    # legend
     lx = x0
-    for key, color, name in series[::-1]:
-        b += f'<line x1="{lx}" y1="112" x2="{lx + 22}" y2="112" stroke="{COL[color]["c"]}" stroke-width="3" stroke-linecap="round"/>'
-        b += text(lx + 30, 112, name, 12.5, TEXT, 600, "start")
-        lx += 30 + len(name) * 7 + 26
-    b += text(sx(1) + 10, sy(hist[0]["reward"]) + 4, f"{hist[0]['reward']:.2f}", 12, TEXT, 700, "start")
-    # ---- bar panel
-    kinds = ["math", "shop1", "shop2", "budget"]
-    before = [log["before"]["per_kind"][k] for k in kinds] + [log["before"]["accuracy"]]
-    after = [log["after"]["per_kind"][k] for k in kinds] + [log["after"]["accuracy"]]
-    names = ["math", "shop1", "shop2", "budget", "overall"]
-    tips = ["calc", "lookup+calc", "2×lookup+calc", "lookup+calc", ""]
-    bx0, bx1 = 680, 1160
-    for v in (0, 0.25, 0.5, 0.75, 1.0):
-        b += f'<line x1="{bx0}" y1="{sy(v)}" x2="{bx1}" y2="{sy(v)}" stroke="{GRID}" stroke-width="1"/>'
-        b += text(bx0 - 10, sy(v), f"{v:.0%}", 12, TEXT2, 500, "end")
-    gw = (bx1 - bx0) / len(names)
-    bw = 30
-    for i, (n, tip, bv, av) in enumerate(zip(names, tips, before, after)):
-        cx = bx0 + gw * (i + 0.5)
-        for j, (v, fill) in enumerate([(bv, "#afb8c1"), (av, COL["blue"]["c"])]):
-            x = cx - bw - 1 + j * (bw + 2)
-            hgt = max(v * (y1 - y0), 2)
-            b += f'<path d="M{x} {y1} V{y1 - hgt + 4} Q{x} {y1 - hgt} {x + 4} {y1 - hgt} H{x + bw - 4} Q{x + bw} {y1 - hgt} {x + bw} {y1 - hgt + 4} V{y1} Z" fill="{fill}"/>'
-            b += text(x + bw / 2, y1 - hgt - 11, f"{v:.0%}", 11.5, TEXT, 700)
-        b += text(cx, y1 + 20, n, 12.5, TEXT, 700 if n == "overall" else 600)
-        if tip:
-            b += text(cx, y1 + 38, tip, 11, TEXT2, 500, font=MONO)
+    for name, color, dash in [("training reward", INK["accent"], ""), ("uses calculator", "#8A949E", ""),
+                              ("uses lookup", "#B4BCC4", ' stroke-dasharray="7 6"')]:
+        c.raw(f'<line x1="{lx}" y1="152" x2="{lx + 30}" y2="152" stroke="{color}" stroke-width="3.2" '
+              f'stroke-linecap="round"{dash}/>')
+        c.text(lx + 40, 152, name, "small", color=INK["text"])
+        lx += 40 + measure(name, SIZE["small"], WEIGHT["small"]) + 36
+    return c
+
+
+@figure("ch4_before_after", "Bar chart of held-out accuracy on 64 new questions before and after GRPO: math 64% to "
+                            "100%, one lookup 6% to 100%, two lookups 13% to 100%, budget 0% to 100%, overall 16% to 100%.")
+def ch4_before_after():
+    log = _history()
+    rows = [("math", "word problems", "math"), ("shop1", "one price lookup", "shop1"),
+            ("shop2", "two price lookups", "shop2"), ("budget", "lookup, then subtract", "budget"),
+            ("overall", "all 64 questions", None)]
+    c = Canvas(690)
+    c.header("Held-out accuracy, before and after GRPO", "Chapter 4 · the same 64 new questions, answered without randomness")
+    bx0, bmax = 300, 440
+    y = 196
+    for v in (0, 0.5, 1.0):
+        gx = bx0 + v * bmax
+        c.raw(f'<line x1="{gx}" y1="{y - 18}" x2="{gx}" y2="{y + 5 * 82 - 18}" stroke="#EDF0F3" stroke-width="1.2"/>')
+        c.text(gx, y + 5 * 82 + 2, f"{v:.0%}", "small", anchor="middle")
+    for i, (name, desc, key) in enumerate(rows):
+        b = log["before"]["per_kind"][key] if key else log["before"]["accuracy"]
+        a = log["after"]["per_kind"][key] if key else log["after"]["accuracy"]
+        if key is None:
+            c.raw(f'<line x1="{MARGIN}" y1="{y - 18}" x2="{WIDTH - MARGIN}" y2="{y - 18}" stroke="{INK["border"]}" stroke-width="1.5"/>')
+        c.text(MARGIN, y + 6, name, "node", weight=700 if key is None else 600)
+        c.text(MARGIN, y + 36, desc, "small")
+        for j, (v, color) in enumerate([(b, "#B4BCC4"), (a, INK["accent"])]):
+            by = y + j * 30
+            bw = max(v * bmax, 3)
+            c.raw(f'<rect x="{bx0}" y="{by - 11}" width="{bw:.1f}" height="22" rx="4" fill="{color}"/>')
+            c.text(bx0 + bw + 12, by, f"{v:.0%}", "label")
+        y += 82
     lx = bx0
-    for name, fill in [("before GRPO", "#afb8c1"), ("after GRPO", COL["blue"]["c"])]:
-        b += f'<rect x="{lx}" y="104" width="16" height="16" rx="3" fill="{fill}"/>' + text(lx + 24, 112, name, 12.5, TEXT, 600, "start")
-        lx += 150
-    return W, H, b
+    for name, color in [("before GRPO", "#B4BCC4"), ("after GRPO", INK["accent"])]:
+        c.raw(f'<rect x="{lx}" y="140" width="20" height="20" rx="4" fill="{color}"/>')
+        c.text(lx + 30, 150, name, "small", color=INK["text"])
+        lx += 190
+    return c
 
 
 if __name__ == "__main__":
-    for name, fn in DIAGRAMS.items():
-        if ONLY and name not in ONLY:
-            continue
-        W, H, body = fn()
-        print(render(name, W, H, body, OUT))
+    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..")
+    only = set(sys.argv[2:])
+    for name, (fn, alt) in FIGURES.items():
+        if not only or name in only:
+            print(save(fn(), name, alt, out)[0])
