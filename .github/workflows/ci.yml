@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install CPU-only PyTorch and dependencies
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install "transformers>=4.56" matplotlib numpy pytest nbmake ipykernel
+      - name: Unit tests (Chapter 4 building blocks)
+        run: pytest tests -q
+      - name: Run the CPU notebooks end to end (Chapters 1-3)
+        run: >
+          pytest --nbmake --nbmake-timeout=900 -q
+          notebooks/01_q_learning_tool_agent.ipynb
+          notebooks/02_policy_gradient_reinforce.ipynb
+          notebooks/03_grpo_from_scratch.ipynb

@@ -1,0 +1,12 @@
+# Chapters 1-3 (CPU)
+torch>=2.2
+matplotlib>=3.5
+numpy
+
+# Chapter 4 (LLM + tools)
+transformers>=4.56
+
+# Running the notebooks and tests locally
+jupyter
+pytest
+nbmake
