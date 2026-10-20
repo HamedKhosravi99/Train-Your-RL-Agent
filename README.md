@@ -12,13 +12,13 @@
 ![PyTorch](https://img.shields.io/badge/PyTorch-only-ee4c2c)
 [![Open Chapter 1 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/TrainYourAgent/blob/main/notebooks/01_q_learning_tool_agent.ipynb)
 
-<img src="assets/ladder.png" alt="The four chapters: Q-learning, REINFORCE, GRPO, LLM agent" width="100%">
+<img src="assets/ladder.png" alt="The learning path: Q-learning, REINFORCE, GRPO, then an LLM agent, with before and after accuracy for each" width="100%">
 
 </div>
 
 Reinforcement learning with checkable rewards is how reasoning models like DeepSeek-R1 were trained. **Agentic RL** takes the same recipe further: the model learns to **use tools, plan over several steps, and act on what the tools return**, as in Search-R1 and ReTool. But most code that does this lives inside huge frameworks, and most tutorials assume you already know RL.
 
-**TrainYourAgent starts from zero.** Each chapter adds **one big idea** on top of the last, keeps every line of code visible, and runs on a laptop CPU or a free Colab GPU. By the end, you'll have trained a real LLM to plan *look up a price → calculate → answer* with **GRPO you wrote yourself**.
+**Train Your RL Agent starts from zero.** Each chapter adds **one big idea** on top of the last, keeps every line of code visible, and runs on a laptop CPU or a free Colab GPU. By the end, you'll have trained a real LLM to plan *look up a price → calculate → answer* with **GRPO you wrote yourself**.
 
 <div align="center">
 
@@ -118,6 +118,8 @@ loss = -(advantage * log_probs.sum())    # better-than-usual episodes become mor
 loss.backward(); optimizer.step()
 ```
 
+<img src="assets/reinforce.png" alt="REINFORCE flowchart: play an episode, compare its reward with the baseline, raise or lower the probability of its choices" width="100%">
+
 An experiment shows why the **baseline** matters. Give every episode +3 "free points", and without a baseline the agent reinforces its mistakes too (71% vs 98% after 300 rounds, averaged over 20 seeds).
 
 ### Chapter 3 · GRPO: the algorithm behind DeepSeek-R1
@@ -206,7 +208,7 @@ TrainYourAgent/
 │   └── train_tool_agent.py                 # Chapter 4 as one self-contained script
 ├── tests/
 │   └── test_tool_agent.py                  # tools, reward, masking, GRPO loss, LoRA
-├── assets/                                 # diagrams used in the notebooks and README
+├── assets/                                 # diagrams (regenerate with assets/src/diagrams.py)
 └── requirements.txt
 ```
 
@@ -264,7 +266,7 @@ If this helped your course, blog post or research, a citation or a ⭐ helps oth
 
 ```bibtex
 @misc{trainyouragent2026,
-  title  = {TrainYourAgent: Agentic Reinforcement Learning from Scratch, for Beginners},
+  title  = {Train Your RL Agent: Agentic Reinforcement Learning from Scratch, for Beginners},
   author = {Khosravi, Hamed},
   year   = {2026},
   url    = {https://github.com/HamedKhosravi99/TrainYourAgent}
