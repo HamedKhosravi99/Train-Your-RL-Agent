@@ -326,39 +326,68 @@ def ch4_training():
     return c
 
 
-@figure("ch4_before_after", "Bar chart of held-out accuracy on 64 new questions before and after GRPO: math 64% to "
-                            "100%, one lookup 6% to 100%, two lookups 13% to 100%, budget 0% to 100%, overall 16% to 100%.")
-def ch4_before_after():
-    log = _history()
-    rows = [("math", "word problems", "math"), ("shop1", "one price lookup", "shop1"),
-            ("shop2", "two price lookups", "shop2"), ("budget", "lookup, then subtract", "budget"),
-            ("overall", "all 64 questions", None)]
-    c = Canvas(690)
-    c.header("Held-out accuracy, before and after GRPO", "Chapter 4 · the same 64 new questions, answered without randomness")
-    bx0, bmax = 300, 440
-    y = 196
+# ------------------------------------------------------------------------------------------------
+SPLIT_LABELS = [("in_distribution", "Held-out", "same templates, new numbers"),
+                ("new_phrasing", "New wording", "phrasings never seen in training"),
+                ("new_products", "New products", "items added only for the test"),
+                ("three_items", "Three items", "training had at most two"),
+                ("bigger_numbers", "Bigger numbers", "4-digit problems, 3-digit amounts")]
+
+
+def _generalization():
+    data = json.load(open(os.path.join(HERE, "ch4_generalization.json")))   # scripts/evaluate_generalization.py
+    runs = [v for k, v in data["rows"].items() if k.startswith("GRPO")]
+    return data, runs
+
+
+def _generalization_alt():
+    data, runs = _generalization()
+    parts = []
+    for key, name, _ in SPLIT_LABELS:
+        vals = [r[key] for r in runs]
+        parts.append(f"{name.lower()}: untrained {data['rows']['base, zero-shot'][key]:.0%}, "
+                     f"after GRPO {sum(vals) / len(vals):.0%} on average ({min(vals):.0%} to {max(vals):.0%})")
+    return (f"Bar chart of accuracy on harder test sets, {data['n_per_split']} questions each, averaged over "
+            f"{len(runs)} training runs: " + "; ".join(parts) + ".")
+
+
+@figure("ch4_generalization", _generalization_alt())
+def ch4_generalization():
+    data, runs = _generalization()
+    base = data["rows"]["base, zero-shot"]
+    c = Canvas(720)
+    c.header("Does the skill transfer to new questions?",
+             f"{data['n_per_split']} questions per test · after GRPO = average of {len(runs)} training runs")
+    bx0, bmax, y, row_h = 350, 360, 206, 92
     for v in (0, 0.5, 1.0):
         gx = bx0 + v * bmax
-        c.raw(f'<line x1="{gx}" y1="{y - 18}" x2="{gx}" y2="{y + 5 * 82 - 18}" stroke="#EDF0F3" stroke-width="1.2"/>')
-        c.text(gx, y + 5 * 82 + 2, f"{v:.0%}", "small", anchor="middle")
-    for i, (name, desc, key) in enumerate(rows):
-        b = log["before"]["per_kind"][key] if key else log["before"]["accuracy"]
-        a = log["after"]["per_kind"][key] if key else log["after"]["accuracy"]
-        if key is None:
-            c.raw(f'<line x1="{MARGIN}" y1="{y - 18}" x2="{WIDTH - MARGIN}" y2="{y - 18}" stroke="{INK["border"]}" stroke-width="1.5"/>')
-        c.text(MARGIN, y + 6, name, "node", weight=700 if key is None else 600)
-        c.text(MARGIN, y + 36, desc, "small")
-        for j, (v, color) in enumerate([(b, "#B4BCC4"), (a, INK["accent"])]):
-            by = y + j * 30
-            bw = max(v * bmax, 3)
-            c.raw(f'<rect x="{bx0}" y="{by - 11}" width="{bw:.1f}" height="22" rx="4" fill="{color}"/>')
-            c.text(bx0 + bw + 12, by, f"{v:.0%}", "label")
-        y += 82
+        c.raw(f'<line x1="{gx}" y1="{y - 22}" x2="{gx}" y2="{y + 5 * row_h - 26}" stroke="#EDF0F3" stroke-width="1.2"/>')
+        c.text(gx, y + 5 * row_h - 4, f"{v:.0%}", "small", anchor="middle")
+    for key, name, desc in SPLIT_LABELS:
+        vals = [r[key] for r in runs]
+        mean, lo, hi = sum(vals) / len(vals), min(vals), max(vals)
+        c.text(MARGIN, y + 4, name, "node")
+        c.text(MARGIN, y + 34, desc, "small")
+        bw = max(base[key] * bmax, 3)
+        c.raw(f'<rect x="{bx0}" y="{y - 13}" width="{bw:.1f}" height="22" rx="4" fill="#B4BCC4"/>')
+        c.text(bx0 + bw + 12, y - 2, f"{base[key]:.0%}", "label")
+        ay = y + 28
+        aw = max(mean * bmax, 3)
+        c.raw(f'<rect x="{bx0}" y="{ay - 11}" width="{aw:.1f}" height="22" rx="4" fill="{INK["accent"]}"/>')
+        if hi > lo:   # spread across training runs
+            c.raw(f'<line x1="{bx0 + lo * bmax:.1f}" y1="{ay}" x2="{bx0 + hi * bmax:.1f}" y2="{ay}" stroke="#17202A" stroke-width="2.2"/>'
+                  f'<line x1="{bx0 + lo * bmax:.1f}" y1="{ay - 8}" x2="{bx0 + lo * bmax:.1f}" y2="{ay + 8}" stroke="#17202A" stroke-width="2.2"/>'
+                  f'<line x1="{bx0 + hi * bmax:.1f}" y1="{ay - 8}" x2="{bx0 + hi * bmax:.1f}" y2="{ay + 8}" stroke="#17202A" stroke-width="2.2"/>')
+        label = f"{mean:.0%}" if hi == lo else f"{mean:.0%} ({lo * 100:.0f}–{hi:.0%})"
+        c.text(bx0 + max(aw, hi * bmax) + 12, ay, label, "label")
+        y += row_h
     lx = bx0
-    for name, color in [("before GRPO", "#B4BCC4"), ("after GRPO", INK["accent"])]:
+    for name, color in [("untrained", "#B4BCC4"), ("after GRPO", INK["accent"])]:
         c.raw(f'<rect x="{lx}" y="140" width="20" height="20" rx="4" fill="{color}"/>')
         c.text(lx + 30, 150, name, "small", color=INK["text"])
-        lx += 190
+        lx += 170
+    c.raw(f'<line x1="{lx}" y1="150" x2="{lx + 26}" y2="150" stroke="#17202A" stroke-width="2.2"/>')
+    c.text(lx + 36, 150, "range across runs", "small", color=INK["text"])
     return c
 
 

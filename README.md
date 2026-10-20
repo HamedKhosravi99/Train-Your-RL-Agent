@@ -66,7 +66,7 @@ Look up → plan the arithmetic → answer.<br>It learned this from a 0/1 reward
 | 1 | **Q-learning tool agent** | Learn a *score* for each action from rewards; plan two steps ahead | A tiny agent learns *right tool → Finish*: **20% → 100%** on unseen tasks | CPU · ~1 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/Train-Your-RL-Agent/blob/main/notebooks/01_q_learning_tool_agent.ipynb) |
 | 2 | **Policy gradients (REINFORCE)** | Learn *probabilities* directly, the way LLMs work: `loss = -(advantage * log_prob)` | Probabilities sharpen from 25% to ~100%; why a **baseline** matters (71% vs 98% in our tests) | CPU · ~1 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/Train-Your-RL-Agent/blob/main/notebooks/02_policy_gradient_reinforce.ipynb) |
 | 3 | **GRPO from scratch** | Compare a **group** of attempts, **clip** updates, add a **KL leash**; the agent now *reads* the question | **18% → 98%** on unseen phrasings, plus experiments on every GRPO knob | CPU · ~2 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/Train-Your-RL-Agent/blob/main/notebooks/03_grpo_from_scratch.ipynb) |
-| 4 | **Agentic RL for a real LLM** | Multi-turn **tool calls** inside rollouts, a **loss mask** for tool output, **LoRA** from scratch | Qwen2.5-0.5B learns lookup + calculator: **16% → 100%** on held-out questions | free T4 GPU · ~20 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/Train-Your-RL-Agent/blob/main/notebooks/04_llm_tool_use_grpo.ipynb) |
+| 4 | **Agentic RL for a real LLM** | Multi-turn **tool calls** inside rollouts, a **loss mask** for tool output, **LoRA** from scratch | Qwen2.5-0.5B learns lookup + calculator: **16% → 99%** on held-out questions, **91–99%** on four harder tests it never trained on | free T4 GPU · ~20 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/HamedKhosravi99/Train-Your-RL-Agent/blob/main/notebooks/04_llm_tool_use_grpo.ipynb) |
 
 **Who is this for?** Students, engineers and researchers who've heard "GRPO", "agentic RL" or "RL for LLMs" and want to really understand it. You need basic Python. No RL background is assumed, and chapters 1–3 don't even need a GPU.
 
@@ -173,17 +173,25 @@ Everything is written from scratch in PyTorch + 🤗 `transformers`, **without T
 
 <img src="assets/ch4_training.svg" alt="Line chart of training over 25 GRPO steps: training reward rises from 14% at step 1 to between 89% and 100% from step 10 on; use of both tools reaches 100% within the first few steps" width="100%">
 
-<img src="assets/ch4_before_after.svg" alt="Bar chart of held-out accuracy on 64 new questions before and after GRPO: math 64% to 100%, one lookup 6% to 100%, two lookups 13% to 100%, budget 0% to 100%, overall 16% to 100%" width="100%">
+The obvious test, 64 held-out questions, goes from **16% to 99%**. But those questions reuse the training templates with new numbers, so a near-perfect score doesn't prove much. To find out whether the agent learned the *skill*, we test it on questions that differ from training in one way each, and repeat training with **3 different seeds**:
 
-| Question type | Example | Before | After |
-|:--|:--|:-:|:-:|
-| `math` | *A farmer plants 347 rows of trees with 58 trees in each row...* | 64% | **100%** |
-| `shop1` | *How much do 37 notebooks cost?* | 6% | **100%** |
-| `shop2` | *How much do 37 notebooks and 12 rulers cost in total?* | 13% | **100%** |
-| `budget` | *I have 300 dollars and buy 41 markers. How much is left?* | 0% | **100%** |
-| **overall** | | **16%** | **100%** |
+<img src="assets/ch4_generalization.svg" alt="Bar chart of accuracy on harder test sets: after GRPO, averaged over 3 training runs, held-out 99%, new wording 91%, new products 96%, three-item orders 92%, bigger numbers 99%; the untrained model scores between 0% and 36%" width="100%">
 
-These numbers come from one 25-step run of `scripts/train_tool_agent.py` on an Apple M4 laptop (about 17 minutes in total). The 64 held-out questions use new numbers and item combinations but the same question templates. The notebook's *honest scope* section spells out what this does and doesn't show.
+| Test set (64 questions each) | Untrained | Untrained + one worked example | After GRPO: average of 3 runs (lowest–highest) |
+|:--|:-:|:-:|:-:|
+| Held-out (same templates, new numbers) | 16% | 9% | **99%** (98%–100%) |
+| New wording, never seen in training | 17% | 11% | **91%** (88%–97%) |
+| New products, added only for the test | 0% | 0% | **96%** (94%–97%) |
+| Three-item orders (training had at most two) | 3% | 0% | **92%** (86%–100%) |
+| Bigger numbers (4-digit problems, 3-digit amounts) | 36% | 27% | **99%** (98%–100%) |
+
+What this tells us:
+
+- **The skill transfers.** The agent handles wording it never saw, products whose prices it can't have memorized, and longer orders than it practiced on.
+- **It isn't perfect.** New wording and three-item orders are the weak spots; the worst run scores 86% on one of them.
+- **Prompting alone doesn't get there.** Adding a worked example to the untrained model's instructions made it *worse*: it copies the example's numbers instead of reasoning.
+
+Reproduce it with `python scripts/evaluate_generalization.py --adapters <your .pt files>`. Each run took about 17 minutes on an Apple M4 laptop. The notebook's *honest scope* section spells out what this does and doesn't show.
 
 **🕵️ Plot twist: right answers, wasteful habits.** Look closer and the agent makes tool calls it doesn't need. Before a pure math question it looks up a word like `tree` (→ `unknown item`) and only then calculates. The reward only checks the final answer, so extra calls were free. **RL optimizes exactly what you reward.** Habits also vary from run to run. Here are three of our 25-step runs:
 
@@ -223,9 +231,11 @@ Train-Your-RL-Agent/
 │   ├── 03_grpo_from_scratch.ipynb          # CPU · GRPO on a text-reading agent
 │   └── 04_llm_tool_use_grpo.ipynb          # GPU · Qwen2.5-0.5B learns lookup + calculator
 ├── scripts/
-│   └── train_tool_agent.py                 # Chapter 4 as one self-contained script
+│   ├── train_tool_agent.py                 # Chapter 4 as one self-contained script
+│   └── evaluate_generalization.py          # harder test sets + baselines for a trained agent
 ├── tests/
-│   └── test_tool_agent.py                  # tools, reward, masking, GRPO loss, LoRA
+│   ├── test_tool_agent.py                  # tools, reward, masking, GRPO loss, LoRA
+│   └── test_generalization.py              # the harder test sets are built correctly
 ├── assets/                                 # diagrams: .svg for the README, .png for the notebooks
 │   └── src/                                # the diagram generator (python assets/src/diagrams.py)
 └── requirements.txt

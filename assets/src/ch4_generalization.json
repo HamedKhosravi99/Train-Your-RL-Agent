@@ -1,0 +1,47 @@
+{
+ "n_per_split": 64,
+ "splits": [
+  "in_distribution",
+  "new_phrasing",
+  "new_products",
+  "three_items",
+  "bigger_numbers"
+ ],
+ "rows": {
+  "base, zero-shot": {
+   "in_distribution": 0.15625,
+   "new_phrasing": 0.171875,
+   "new_products": 0.0,
+   "three_items": 0.03125,
+   "bigger_numbers": 0.359375
+  },
+  "base, one worked example": {
+   "in_distribution": 0.09375,
+   "new_phrasing": 0.109375,
+   "new_products": 0.0,
+   "three_items": 0.0,
+   "bigger_numbers": 0.265625
+  },
+  "GRPO, seed 0": {
+   "in_distribution": 1.0,
+   "new_phrasing": 0.875,
+   "new_products": 0.96875,
+   "three_items": 0.90625,
+   "bigger_numbers": 1.0
+  },
+  "GRPO, seed 1": {
+   "in_distribution": 1.0,
+   "new_phrasing": 0.96875,
+   "new_products": 0.96875,
+   "three_items": 1.0,
+   "bigger_numbers": 1.0
+  },
+  "GRPO, seed 2": {
+   "in_distribution": 0.984375,
+   "new_phrasing": 0.875,
+   "new_products": 0.9375,
+   "three_items": 0.859375,
+   "bigger_numbers": 0.984375
+  }
+ }
+}
